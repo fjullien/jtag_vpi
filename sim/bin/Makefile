@@ -1,6 +1,6 @@
 SOURCE_DIR=../..
-INCLUDE_DIR=$(SOURCE_DIR)/include
 BENCH_DIR=$(SOURCE_DIR)/bench
+INCLUDE_DIR=$(BENCH_DIR)/include
 
 # Set V=1 when calling make to enable verbose output
 # mainly for debugging purposes.
