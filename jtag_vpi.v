@@ -25,6 +25,7 @@
 `define CMD_TMS_SEQ		1
 `define CMD_SCAN_CHAIN		2
 `define CMD_SCAN_CHAIN_FLIP_TMS	3
+`define CMD_STOP_SIMU		4
 
 module jtag_vpi
 #(	parameter DEBUG_INFO = 0,
@@ -82,9 +83,6 @@ task main;
 begin
 	$display("JTAG debug module with VPI interface enabled\n");
 
-	// execute some cycles
-	#50000;
-
 	reset_tap;
 	goto_run_test_idle;
 
@@ -134,6 +132,13 @@ begin
 			flip_tms = 1;
 			do_scan_chain;
 			$send_result_to_server(length, buffer_in);
+		end
+
+		`CMD_STOP_SIMU :
+		begin
+			if(DEBUG_INFO)
+				$display("%t ----> End of simulation\n", $time);
+			$finish();
 		end
 
 		default:

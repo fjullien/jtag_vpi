@@ -22,14 +22,20 @@ IVERILOG_SRC = $(SOURCE_DIR)/jtag_vpi.v \
                $(BENCH_DIR)/ram/ram_wb_b3.v \
                $(ADV_DEBUG_SRC)
 
+all: build
 
-all :
-	echo ##### Building ######
+build:
+	@echo '##### Building ######'
+	$(Q)gcc -otest_client $(BENCH_DIR)/test_client.c
 	$(Q)iverilog-vpi $(IVERILOG_VPI_SRC) > /dev/null
 	$(Q)iverilog -I$(INCLUDE_DIR) -ojtag_vpi_tb.vvp $(IVERILOG_SRC)
 
-	echo ##### Start the simulation ######
-	$(Q)vvp -n -M. -mjtag_vpi jtag_vpi_tb.vvp +jtag_vpi_enable=1
-
+sim: build
+	@echo '##### Start the simulation ######'
+	$(Q)vvp -n -M. -mjtag_vpi jtag_vpi_tb.vvp +jtag_vpi_enable=1 &
+	@sleep 1
+	@echo '##### Running the test client ######'
+	$(Q)./test_client
+	@sleep 1
 clean:
-	@rm -rf *.o *~ *.vpi *.vvp *.vcd
+	@rm -rf *.o *~ *.vpi *.vvp *.vcd test_client
