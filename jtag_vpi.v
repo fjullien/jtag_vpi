@@ -32,17 +32,12 @@ module jtag_vpi
 	parameter TP = 1,
 	parameter TCK_HALF_PERIOD = 50)   // Clock half period (Clock period = 100 ns => 10 MHz)
 (
-	output	tms,
-	output	tck,
-	output	tdi,
-	input	tdo,
-	input	enable,
-	input	init_done);
-   
-
-reg		tms;
-reg		tck;
-reg		tdi;
+	output reg	tms,
+	output reg	tck,
+	output reg	tdi,
+	input		tdo,
+	input		enable,
+	input		init_done);
 
 integer		cmd;
 integer		length;
