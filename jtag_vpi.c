@@ -29,7 +29,7 @@
 
 #include <vpi_user.h>
 
-#define RSP_SERVER_PORT	50020
+#define RSP_SERVER_PORT	5555
 #define	XFERT_MAX_SIZE	512
 
 const char * cmd_to_string[] = {"CMD_RESET",
