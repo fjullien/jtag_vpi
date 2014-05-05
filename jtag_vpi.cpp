@@ -58,7 +58,7 @@ int VerilatorJTAG::send_result_to_server(struct jtag_cmd *packet)
 	return 0;
 }
 
-int VerilatorJTAG::gen_clk(uint64_t t, int nb_period, int *tck, int tdo, int *captured_tdo, int restart)
+int VerilatorJTAG::gen_clk(uint64_t t, int nb_period, uint8_t *tck, uint8_t tdo, uint8_t *captured_tdo, int restart, int get_tdo)
 {
 	static bool gen_clk_begin = 1;
 	static bool tck_low = 1;
@@ -89,7 +89,7 @@ int VerilatorJTAG::gen_clk(uint64_t t, int nb_period, int *tck, int tdo, int *ca
 			return IN_PROGRESS;
 		} else {
 			*tck = 1;
-			if ((tdo >= 0) && !capture_done) {
+			if (get_tdo && !capture_done) {
 				capture_done = 1;
 				*captured_tdo = tdo;
 			}
@@ -107,11 +107,16 @@ int VerilatorJTAG::gen_clk(uint64_t t, int nb_period, int *tck, int tdo, int *ca
 	return DONE;
 }
 
-int VerilatorJTAG::reset_tap(uint64_t t, int *tms, int *tck)
+void VerilatorJTAG::gen_clk_restart()
+{
+	gen_clk(0, 0, NULL, 0, NULL, 1, 0);
+}
+
+int VerilatorJTAG::reset_tap(uint64_t t, uint8_t *tms, uint8_t *tck)
 {
 	*tms = 1;
-	if (gen_clk(t, 5, tck, -1, NULL, 0) == DONE) {
-		gen_clk(NULL, 0, NULL, -1, NULL, 1);
+	if (gen_clk(t, 5, tck, -1, NULL, 0, 0) == DONE) {
+		gen_clk_restart();
 		*tms = 0;
 		return DONE;
 	}
@@ -119,18 +124,18 @@ int VerilatorJTAG::reset_tap(uint64_t t, int *tms, int *tck)
 	return IN_PROGRESS;
 }
 
-int VerilatorJTAG::goto_run_test_idle(uint64_t t, int *tms, int *tck)
+int VerilatorJTAG::goto_run_test_idle(uint64_t t, uint8_t *tms, uint8_t *tck)
 {
 	*tms = 0;
-	if (gen_clk(t, 1, tck, -1, NULL, 0) == DONE) {
-		gen_clk(NULL, 0, NULL, -1, NULL, 1);
+	if (gen_clk(t, 1, tck, -1, NULL, 0, 0) == DONE) {
+		gen_clk_restart();
 		return DONE;
 	}
 
 	return IN_PROGRESS;
 }
 
-int VerilatorJTAG::do_tms_seq(uint64_t t, int length, int nb_bits, unsigned char *buffer, int *tms, int *tck)
+int VerilatorJTAG::do_tms_seq(uint64_t t, int length, int nb_bits, unsigned char *buffer, uint8_t *tms, uint8_t *tck)
 {
 	static int i = 0;
 	static int j = 0;
@@ -156,10 +161,10 @@ int VerilatorJTAG::do_tms_seq(uint64_t t, int length, int nb_bits, unsigned char
 			*tms = 0;
 			if ((data & 1) == 1)
 				*tms = 1;
-			if (gen_clk(t, 1, tck, -1, NULL, 0) == DONE) {
+			if (gen_clk(t, 1, tck, 0, NULL, 0, 0) == DONE) {
 				j++;
 				data = data >> 1;
-				gen_clk(NULL, 0, NULL, -1, NULL, 1);
+				gen_clk_restart();
 			}
 			return IN_PROGRESS;
 		}
@@ -179,14 +184,14 @@ int VerilatorJTAG::do_tms_seq(uint64_t t, int length, int nb_bits, unsigned char
 }
 
 int VerilatorJTAG::do_scan_chain(uint64_t t, int length, int nb_bits, unsigned char *buffer_out,
-		  unsigned char *buffer_in, int *tms, int *tck, int *tdi, int tdo, int flip_tms)
+		  unsigned char *buffer_in, uint8_t *tms, uint8_t *tck, uint8_t *tdi, uint8_t tdo, int flip_tms)
 {
 	static int i = 0;
 	static int j = 0;
 	static int index = 0;
 	static int start = 1;
 	static unsigned char data;
-	static int captured_tdo;
+	static uint8_t captured_tdo;
 	int nb_bits_rem;
 	int nb_bits_in_this_byte;
 
@@ -217,14 +222,14 @@ int VerilatorJTAG::do_scan_chain(uint64_t t, int length, int nb_bits, unsigned c
 			if (((j == (nb_bits_in_this_byte - 1)) && (i == (length - 1))) && (flip_tms == 1))
 				*tms = 1;
 
-			if (gen_clk(t, 1, tck, tdo, &captured_tdo, 0) == DONE) {
+			if (gen_clk(t, 1, tck, tdo, &captured_tdo, 0, 1) == DONE) {
 				if (captured_tdo)
 					buffer_in[i] |= (1 << j);
 				else
 					buffer_in[i] &= ~(1 << j);
 				j++;
 				data = data >> 1;
-				gen_clk(NULL, 0, NULL, -1, NULL, 1);
+				gen_clk_restart();
 			}
 			return IN_PROGRESS;
 		}
@@ -273,7 +278,7 @@ int VerilatorJTAG::init_jtag_server(int port)
 }
 
 
-int VerilatorJTAG::doJTAG(uint64_t t, int *tms, int *tdi, int *tck, int tdo)
+int VerilatorJTAG::doJTAG(uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t *tck, uint8_t tdo)
 {
 	if (!cmd_in_progress)
 		check_for_command(&packet);
