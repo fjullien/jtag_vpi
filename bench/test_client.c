@@ -22,6 +22,7 @@
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 /* Configuration */
 #define SERVER_ADDRESS			"127.0.0.1"

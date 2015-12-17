@@ -85,6 +85,8 @@ void check_for_command(char *userdata)
 	int nb;
 	int loaded_words = 0;
 
+	(void)userdata;
+
 	// Get the command from TCP server
 	if(!connfd)
 	  init_jtag_server(RSP_SERVER_PORT);
@@ -178,13 +180,15 @@ void send_result_to_server(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	int n;
+	uint n;
 	struct vpi_cmd vpi;
 
-	uint32_t length;
+	int32_t length;
 	int sent_words;
 
 	vpiHandle array_word;
+
+	(void)userdata;
 
 	// Now setup the handles to verilog objects and check things
 	// Obtain a handle to the argument list
@@ -221,7 +225,7 @@ void send_result_to_server(char *userdata)
 	// check the memory we're writing into is big enough
 	if (vpi_get(vpiSize, argh) < length ) {
 		vpi_printf("jp_vpi: ERROR: buffer passed to get_command_block_data too small. size is %d words, needs to be %d\n",
-		 vpi_get(vpiSize, argh), length);
+		vpi_get(vpiSize, argh), length);
 		return;
 	}
 
@@ -241,6 +245,8 @@ void send_result_to_server(char *userdata)
 	}
 
 	n = write(connfd, &vpi, sizeof(struct vpi_cmd));
+	if (n < sizeof(struct vpi_cmd))
+		vpi_printf("jp_vpi: ERROR: error during write to server\n");
 
 	// Cleanup and return
 	vpi_free_object(args_iter);
@@ -288,15 +294,17 @@ void setup_reset_callbacks(void)
 	// the simulator upon simulation start and
 	// reset
 
-	static s_vpi_time time_s = {vpiScaledRealTime};
-	static s_vpi_value value_s = {vpiBinStrVal};
+	static s_vpi_time time_s = {vpiScaledRealTime, 0, 0, 0};
+	static s_vpi_value value_s = {.format = vpiBinStrVal};
 
 	static s_cb_data cb_data_s = {
 		cbEndOfReset, // or start of simulation - initing socket fds etc
 		(void *)sim_reset_callback,
 		NULL,
 		&time_s,
-		&value_s
+		&value_s,
+		0,
+		NULL
 	};
 
 	cb_data_s.obj = NULL;  /* trigger object */
@@ -307,25 +315,27 @@ void setup_reset_callbacks(void)
 	vpi_register_cb(&cb_data_s);
 }
 
-void sim_endofcompile_callback()
+void sim_endofcompile_callback(void)
 {
 
 }
 
-void setup_endofcompile_callbacks()
+void setup_endofcompile_callbacks(void)
 {
 	// here we setup and install callbacks for
 	// simulation finish
 
-	static s_vpi_time time_s = {vpiScaledRealTime};
-	static s_vpi_value value_s = {vpiBinStrVal};
+	static s_vpi_time time_s = {vpiScaledRealTime, 0, 0, 0};
+	static s_vpi_value value_s = {.format = vpiBinStrVal};
 
 	static s_cb_data cb_data_s = {
 		cbEndOfCompile, // end of compile
 		(void *)sim_endofcompile_callback,
 		NULL,
 		&time_s,
-		&value_s
+		&value_s,
+		0,
+		NULL
 	};
 
 	cb_data_s.obj = NULL;  /* trigger object */
@@ -336,27 +346,29 @@ void setup_endofcompile_callbacks()
 	vpi_register_cb(&cb_data_s);
 }
 
-void sim_finish_callback()
+void sim_finish_callback(void)
 {
 	printf("Closing RSP server\n");
 	close(connfd);
 	close(listenfd);
 }
 
-void setup_finish_callbacks()
+void setup_finish_callbacks(void)
 {
 	// here we setup and install callbacks for
 	// simulation finish
 
-	static s_vpi_time time_s = {vpiScaledRealTime};
-	static s_vpi_value value_s = {vpiBinStrVal};
+	static s_vpi_time time_s = {vpiScaledRealTime, 0, 0, 0};
+	static s_vpi_value value_s = {.format = vpiBinStrVal};
 
 	static s_cb_data cb_data_s = {
 		cbEndOfSimulation, // end of simulation
 		(void *)sim_finish_callback,
 		NULL,
 		&time_s,
-		&value_s
+		&value_s,
+		0,
+		NULL
 	};
 
 	cb_data_s.obj = NULL;  /* trigger object */
@@ -367,7 +379,7 @@ void setup_finish_callbacks()
 }
 
 // Register the new system task here
-void (*vlog_startup_routines[])() = {
+void (*vlog_startup_routines[])(void) = {
 #ifdef CDS_VPI
 	// this installs a callback on simulator reset - something which
 	// icarus does not do, so we only do it for cadence currently
@@ -383,5 +395,8 @@ void (*vlog_startup_routines[])() = {
 // Entry point for testing development of the vpi functions
 int main(int argc, char *argv[])
 {
+	(void)argc;
+	(void)argv;
+
 	return 0;
 }
