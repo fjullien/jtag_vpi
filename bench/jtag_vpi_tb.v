@@ -18,8 +18,6 @@
  *
  */
 
-`timescale 1ns/10ps
-
 module jtag_vpi_tb;
 
 wire		tdo_pad_o;
