@@ -180,7 +180,7 @@ void send_result_to_server(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	uint n;
+	ssize_t n;
 	struct vpi_cmd vpi;
 
 	int32_t length;
@@ -245,7 +245,7 @@ void send_result_to_server(char *userdata)
 	}
 
 	n = write(connfd, &vpi, sizeof(struct vpi_cmd));
-	if (n < sizeof(struct vpi_cmd))
+	if (n < (ssize_t)sizeof(struct vpi_cmd))
 		vpi_printf("jp_vpi: ERROR: error during write to server\n");
 
 	// Cleanup and return
