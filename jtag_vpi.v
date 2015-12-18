@@ -19,8 +19,6 @@
  *
  */
 
-`timescale 1ns/10ps
-
 `define CMD_RESET		0
 `define CMD_TMS_SEQ		1
 `define CMD_SCAN_CHAIN		2

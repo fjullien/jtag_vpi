@@ -98,9 +98,6 @@
 //
 //
 
-// synopsys translate_off
-`include "timescale.v"
-// synopsys translate_on
 `include "tap_defines.v"
 
 // Top module
