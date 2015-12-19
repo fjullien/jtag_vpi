@@ -348,7 +348,8 @@ void setup_endofcompile_callbacks(void)
 
 void sim_finish_callback(void)
 {
-	printf("Closing RSP server\n");
+	if(connfd)
+		printf("Closing RSP server\n");
 	close(connfd);
 	close(listenfd);
 }
