@@ -217,14 +217,14 @@ void send_result_to_server(char *userdata)
 	|| (vpi_get(vpiType, argh) == vpiRegArray)
 #endif
 	)) {
-		vpi_printf("jp_vpi: ERROR: did not pass a memory to get_command_block_data\n");
-		vpi_printf("jp_vpi: ERROR: was passed type %d\n", (int)vpi_get(vpiType, argh));
+		vpi_printf("jtag_vpi: ERROR: did not pass a memory to get_command_block_data\n");
+		vpi_printf("jtag_vpi: ERROR: was passed type %d\n", (int)vpi_get(vpiType, argh));
 		return;
 	}
 
 	// check the memory we're writing into is big enough
 	if (vpi_get(vpiSize, argh) < length ) {
-		vpi_printf("jp_vpi: ERROR: buffer passed to get_command_block_data too small. size is %d words, needs to be %d\n",
+		vpi_printf("jtag_vpi: ERROR: buffer passed to get_command_block_data too small. size is %d words, needs to be %d\n",
 		vpi_get(vpiSize, argh), length);
 		return;
 	}
@@ -246,7 +246,7 @@ void send_result_to_server(char *userdata)
 
 	n = write(connfd, &vpi, sizeof(struct vpi_cmd));
 	if (n < (ssize_t)sizeof(struct vpi_cmd))
-		vpi_printf("jp_vpi: ERROR: error during write to server\n");
+		vpi_printf("jtag_vpi: ERROR: error during write to server\n");
 
 	// Cleanup and return
 	vpi_free_object(args_iter);
