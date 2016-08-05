@@ -227,6 +227,9 @@ void send_result_to_server(char *userdata)
 #ifdef MODELSIM_VPI
 	|| (vpi_get(vpiType, argh) == vpiRegArray)
 #endif
+#ifdef VCS_VPI
+        || (vpi_get(vpiType, argh) == vpiRegArray)
+#endif
 	)) {
 		vpi_printf("jtag_vpi: ERROR: did not pass a memory to get_command_block_data\n");
 		vpi_printf("jtag_vpi: ERROR: was passed type %d\n", (int)vpi_get(vpiType, argh));
@@ -390,6 +393,7 @@ void setup_finish_callbacks(void)
 	vpi_register_cb(&cb_data_s);
 }
 
+#ifndef VCS_VPI
 // Register the new system task here
 void (*vlog_startup_routines[])(void) = {
 #ifdef CDS_VPI
@@ -412,3 +416,4 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+#endif
