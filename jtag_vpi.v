@@ -39,7 +39,9 @@
 module jtag_vpi
 #(	parameter DEBUG_INFO = 0,
 	parameter TP = 1,
-	parameter TCK_HALF_PERIOD = 50)   // Clock half period (Clock period = 100 ns => 10 MHz)
+	parameter TCK_HALF_PERIOD = 50, // Clock half period (Clock period = 100 ns => 10 MHz)
+        parameter  CMD_DELAY = 1000
+)   
 (
 	output reg	tms,
 	output reg	tck,
@@ -88,7 +90,7 @@ begin
 	$display("JTAG debug module with VPI interface enabled\n");
 
 	reset_tap;
-	goto_run_test_idle;
+	goto_run_test_idle_from_reset;
 
 	while (1) begin
 
@@ -99,7 +101,7 @@ begin
 
 		while (cmd == -1)
 		begin
-			#1000 $check_for_command(cmd, length, nb_bits, buffer_out);
+                     #CMD_DELAY $check_for_command(cmd, length, nb_bits, buffer_out);
 		end
 
 		// now switch on the command
@@ -110,7 +112,7 @@ begin
 			if (DEBUG_INFO)
 				$display("%t ----> CMD_RESET %h\n", $time, length);
 			reset_tap;
-			goto_run_test_idle;
+			goto_run_test_idle_from_reset;
 		end
 
 		`CMD_TMS_SEQ :
@@ -189,10 +191,10 @@ endtask
 
 
 // Goes to RunTestIdle state
-task goto_run_test_idle;
+task goto_run_test_idle_from_reset;
 begin
 	if (DEBUG_INFO)
-		$display("(%0t) Task goto_run_test_idle", $time);
+		$display("(%0t) Task goto_run_test_idle_from_reset", $time);
 	tms <= #1 1'b0;
 	gen_clk(1);
 end
@@ -209,7 +211,7 @@ integer		nb_bits_in_this_byte;
 
 begin
 	if (DEBUG_INFO)
-		$display("(%0t) Task do_tms_seq", $time);
+		$display("(%0t) Task do_tms_seq of %d bits (length = %d)", $time, nb_bits, length);
 
 	// Number of bits to send in the last byte
 	nb_bits_rem = nb_bits % 8;
@@ -226,7 +228,7 @@ begin
 			tms <= #1 1'b0;
 			if (data[j] == 1) begin
 				tms <= #1 1'b1;
-			end
+                        end
 			gen_clk(1);
 		end
 	end
@@ -240,14 +242,14 @@ endtask
 // 
 task do_scan_chain;
 
-integer		bit;
+integer		_bit;
 integer		nb_bits_rem;
 integer		nb_bits_in_this_byte;
 integer		index;
 
 begin
 	if(DEBUG_INFO)
-		$display("(%0t) Task do_scan_chain", $time);
+		$display("(%0t) Task do_scan_chain of %d bits (length = %d)", $time, nb_bits, length);
 
 	// Number of bits to send in the last byte
 	nb_bits_rem = nb_bits % 8;
@@ -260,20 +262,20 @@ begin
 		nb_bits_in_this_byte = (index == (length - 1)) ? ((nb_bits_rem == 0) ? 8 : nb_bits_rem) : 8;
 
 		data_out = buffer_out[index];
-		for (bit = 0; bit < nb_bits_in_this_byte; bit = bit + 1)
+		for (_bit = 0; _bit < nb_bits_in_this_byte; _bit = _bit + 1)
 		begin
 			tdi <= 1'b0;
-			if (data_out[bit] == 1'b1) begin
+			if (data_out[_bit] == 1'b1) begin
 				tdi <= 1'b1;
 			end
 
 			// On the last bit, set TMS to '1'
-			if (((bit == (nb_bits_in_this_byte - 1)) && (index == (length - 1))) && (flip_tms == 1)) begin
+			if (((_bit == (nb_bits_in_this_byte - 1)) && (index == (length - 1))) && (flip_tms == 1)) begin
 				tms <= 1'b1;
 			end
 
 			#TCK_HALF_PERIOD tck <= 1;
-			data_in[bit] <= tdo;
+			data_in[_bit] <= tdo;
 			#TCK_HALF_PERIOD tck <= 0;
 		end
 		buffer_in[index] = data_in;
