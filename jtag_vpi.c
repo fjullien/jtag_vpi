@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -48,15 +49,30 @@ const char * cmd_to_string[] = {"CMD_RESET",
 				"CMD_SCAN_CHAIN"};
 
 struct vpi_cmd {
-	int cmd;
+	uint32_t cmd;
 	unsigned char buffer_out[XFERT_MAX_SIZE];
 	unsigned char buffer_in[XFERT_MAX_SIZE];
-	int length;
-	int nb_bits;
+	uint32_t length;
+	uint32_t nb_bits;
 };
 
 int listenfd = 0;
 int connfd = 0;
+
+static int is_host_little_endian(void)
+{
+	return (htonl(25) != 25);
+}
+
+static uint32_t from_little_endian_u32(uint32_t val)
+{
+	return is_host_little_endian() ? val : htonl(val);
+}
+
+static uint32_t to_little_endian_u32(uint32_t val)
+{
+	return from_little_endian_u32(val);
+}
 
 int init_jtag_server(int port)
 {
@@ -94,7 +110,7 @@ void check_for_command(char *userdata)
 	struct t_vpi_value argval;
 	struct vpi_cmd vpi;
 	int nb;
-	int loaded_words = 0;
+	unsigned loaded_words = 0;
 
 	(void)userdata;
 
@@ -113,6 +129,14 @@ void check_for_command(char *userdata)
 			exit(1);
 		}
 	}
+
+	// Handle endianness.
+	// Little endian chosen intentionally to preserve compatibility with
+	// older OpenOCD. (OpenOCD 0.10.0 and older did not care about endiannes in
+	// packets but we assume a little-endian workstation.)
+	vpi.cmd = from_little_endian_u32(vpi.cmd);
+	vpi.length = from_little_endian_u32(vpi.length);
+	vpi.nb_bits = from_little_endian_u32(vpi.nb_bits);
 
 /************* vpi.cmd to VPI ******************************/
 
@@ -257,6 +281,11 @@ void send_result_to_server(char *userdata)
 
 		sent_words++;
 	}
+
+	// Handle endianness
+	vpi.cmd = to_little_endian_u32(vpi.cmd);
+	vpi.length = to_little_endian_u32(vpi.length);
+	vpi.nb_bits = to_little_endian_u32(vpi.nb_bits);
 
 	n = write(connfd, &vpi, sizeof(struct vpi_cmd));
 	if (n < (ssize_t)sizeof(struct vpi_cmd))
