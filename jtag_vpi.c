@@ -30,34 +30,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
 #include <arpa/inet.h>
 
 #include <vpi_user.h>
 
-#define RSP_SERVER_PORT	5555
-#define	XFERT_MAX_SIZE	512
-
-const char * cmd_to_string[] = {"CMD_RESET",
-				"CMD_TMS_SEQ",
-				"CMD_SCAN_CHAIN"};
-
-struct vpi_cmd {
-	uint32_t cmd;
-	unsigned char buffer_out[XFERT_MAX_SIZE];
-	unsigned char buffer_in[XFERT_MAX_SIZE];
-	uint32_t length;
-	uint32_t nb_bits;
-};
-
-int listenfd = 0;
-int connfd = 0;
+#include "jtag_common.h"
 
 static int is_host_little_endian(void)
 {
@@ -74,61 +51,17 @@ static uint32_t to_little_endian_u32(uint32_t val)
 	return from_little_endian_u32(val);
 }
 
-int init_jtag_server(int port)
-{
-	struct sockaddr_in serv_addr;
-	int flags;
-
-	printf("Listening on port %d\n", port);
-
-	listenfd = socket(AF_INET, SOCK_STREAM, 0);
-	memset(&serv_addr, '0', sizeof(serv_addr));
-
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(port);
-
-	bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-
-	listen(listenfd, 10);
-
-	printf("Waiting for client connection...");
-	connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-	printf("ok\n");
-
-	flags = fcntl(listenfd, F_GETFL, 0);
-	fcntl(listenfd, F_SETFL, flags | O_NONBLOCK);
-
-	return 0;
-}
-
-// See if there's anything on the FIFO for us
-
 void vpi_check_for_command(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
 	struct vpi_cmd vpi;
-	int nb;
 	unsigned loaded_words = 0;
 
 	(void)userdata;
+	if (check_for_command(&vpi))
+	  return;
 
-	// Get the command from TCP server
-	if(!connfd)
-	  init_jtag_server(RSP_SERVER_PORT);
-	nb = read(connfd, &vpi, sizeof(struct vpi_cmd));
-
-	if (((nb < 0) && (errno == EAGAIN)) || (nb == 0)) {
-		// Nothing in the fifo this time, let's return
-		return;
-	} else {
-		if (nb < 0) {
-			// some sort of error
-			perror("check_for_command");
-			exit(1);
-		}
-	}
 
 	// Handle endianness.
 	// Little endian chosen intentionally to preserve compatibility with
@@ -215,7 +148,6 @@ void vpi_send_result_to_server(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	ssize_t n;
 	struct vpi_cmd vpi;
 
 	int32_t length;
@@ -287,8 +219,7 @@ void vpi_send_result_to_server(char *userdata)
 	vpi.length = to_little_endian_u32(vpi.length);
 	vpi.nb_bits = to_little_endian_u32(vpi.nb_bits);
 
-	n = write(connfd, &vpi, sizeof(struct vpi_cmd));
-	if (n < (ssize_t)sizeof(struct vpi_cmd))
+	if (send_result_to_server(&vpi))
 		vpi_printf("jtag_vpi: ERROR: error during write to server\n");
 
 	// Cleanup and return
@@ -391,10 +322,7 @@ void setup_endofcompile_callbacks(void)
 
 void sim_finish_callback(void)
 {
-	if(connfd)
-		printf("Closing RSP server\n");
-	close(connfd);
-	close(listenfd);
+	jtag_finish();
 }
 
 void setup_finish_callbacks(void)
