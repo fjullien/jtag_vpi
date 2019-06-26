@@ -104,7 +104,7 @@ int init_jtag_server(int port)
 
 // See if there's anything on the FIFO for us
 
-void check_for_command(char *userdata)
+void vpi_check_for_command(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
@@ -211,7 +211,7 @@ void check_for_command(char *userdata)
 	vpi_free_object(args_iter);
 }
 
-void send_result_to_server(char *userdata)
+void vpi_send_result_to_server(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
@@ -301,7 +301,7 @@ void register_check_for_command(void)
 		vpiSysTask,
 		0,
 		"$check_for_command",
-		(void *)check_for_command,
+		(void *)vpi_check_for_command,
 		0,
 		0,
 		0
@@ -316,7 +316,7 @@ void register_send_result_to_server(void)
 		vpiSysTask,
 		0,
 		"$send_result_to_server",
-		(void *)send_result_to_server,
+		(void *)vpi_send_result_to_server,
 		0,
 		0,
 		0
