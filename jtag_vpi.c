@@ -55,7 +55,7 @@ void vpi_check_for_command(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	struct vpi_cmd vpi;
+	struct jtag_cmd vpi;
 	unsigned loaded_words = 0;
 
 	(void)userdata;
@@ -148,7 +148,7 @@ void vpi_send_result_to_server(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	struct vpi_cmd vpi;
+	struct jtag_cmd vpi;
 
 	int32_t length;
 	int sent_words;

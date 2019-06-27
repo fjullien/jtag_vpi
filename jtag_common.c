@@ -43,12 +43,12 @@ int init_jtag_server(int port)
 
 // See if there's anything on the FIFO for us
 
-int check_for_command(struct vpi_cmd *vpi) {
+int check_for_command(struct jtag_cmd *vpi) {
 	int nb;
 	// Get the command from TCP server
 	if(!connfd)
-		init_jtag_server(RSP_SERVER_PORT);
-	nb = read(connfd, vpi, sizeof(struct vpi_cmd));
+	  init_jtag_server(RSP_SERVER_PORT);
+	nb = read(connfd, vpi, sizeof(struct jtag_cmd));
 	if (((nb < 0) && (errno == EAGAIN)) || (nb == 0)) {
 		// Nothing in the fifo this time, let's return
 		return 1;
@@ -62,16 +62,16 @@ int check_for_command(struct vpi_cmd *vpi) {
 	return 0;
 }
 
-int send_result_to_server(struct vpi_cmd *vpi) {
+int send_result_to_server(struct jtag_cmd *vpi) {
 	ssize_t n;
-	n = write(connfd, vpi, sizeof(struct vpi_cmd));
-	if (n < (ssize_t)sizeof(struct vpi_cmd))
-		return -1;
+	n = write(connfd, vpi, sizeof(struct jtag_cmd));
+	if (n < (ssize_t)sizeof(struct jtag_cmd))
+	  return -1;
 	return 0;
 }
 
 void jtag_finish(void) {
-	if(connfd)
+  	if(connfd)
 		printf("Closing RSP server\n");
 	close(connfd);
 	close(listenfd);
