@@ -1,6 +1,6 @@
 CAPI=2:
 
-name : ::jtag_vpi:0-r3
+name : ::jtag_vpi:0-r4
 description : TCP/IP controlled VPI JTAG Interface
 
 filesets :
@@ -29,6 +29,7 @@ targets :
       - "tool_verilator? (verilator)"
       - "!tool_verilator? (vpi)"
     parameters: [jtag_vpi_enable]
+    vpi: [jtag_vpi]
 
 parameters:
   jtag_vpi_enable:
