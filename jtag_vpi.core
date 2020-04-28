@@ -1,6 +1,6 @@
 CAPI=2:
 
-name : ::jtag_vpi:0-r4
+name : ::jtag_vpi:0-r5
 description : TCP/IP controlled VPI JTAG Interface
 
 filesets :

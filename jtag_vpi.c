@@ -36,42 +36,42 @@
 
 #include "jtag_common.h"
 
-static int is_host_little_endian(void)
+static void terminate_simulation(void)
 {
-	return (htonl(25) != 25);
-}
-
-static uint32_t from_little_endian_u32(uint32_t val)
-{
-	return is_host_little_endian() ? val : htonl(val);
-}
-
-static uint32_t to_little_endian_u32(uint32_t val)
-{
-	return from_little_endian_u32(val);
+	vpi_control(vpiFinish, 1);
 }
 
 void vpi_check_for_command(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	struct jtag_cmd vpi;
+	struct jtag_cmd cmd;
 	unsigned loaded_words = 0;
-
+	int ret;
 	(void)userdata;
-	if (check_for_command(&vpi))
-	  return;
 
+	// See if there is an incoming JTAG command
+	ret = check_for_command(&cmd);
+	if (ret == JTAG_SERVER_TRY_LATER) {
+		// No command from OpenOCD at this time
+		return;
+	}
+	else if (ret != JTAG_SERVER_SUCCESS) {
+		if (ret == JTAG_SERVER_CLIENT_DISCONNECTED) {
+			// OpenOCD disconnected
+			vpi_printf("Ending simulation. Reason: jtag_vpi client disconnection.\n");
+		}
+		else {
+			// A communication error ocurred, cannot continue
+			vpi_printf("Ending simulation. Reason: Error communicating with OpenOCD.\n");
+		}
+		terminate_simulation();
+		return;
+	}
 
-	// Handle endianness.
-	// Little endian chosen intentionally to preserve compatibility with
-	// older OpenOCD. (OpenOCD 0.10.0 and older did not care about endiannes in
-	// packets but we assume a little-endian workstation.)
-	vpi.cmd = from_little_endian_u32(vpi.cmd);
-	vpi.length = from_little_endian_u32(vpi.length);
-	vpi.nb_bits = from_little_endian_u32(vpi.nb_bits);
+	// New command from OpenOCD arrived. Push it to the RTL simulation:
 
-/************* vpi.cmd to VPI ******************************/
+	/************* vpi.cmd to VPI ******************************/
 
 	// Obtain a handle to the argument list
 	systfref = vpi_handle(vpiSysTfCall, NULL);
@@ -84,12 +84,12 @@ void vpi_check_for_command(char *userdata)
 	// Now set the command value
 	vpi_get_value(argh, &argval);
 
-	argval.value.integer = (uint32_t)vpi.cmd;
+	argval.value.integer = (uint32_t)cmd.cmd;
 
 	// And vpi_put_value() it back into the sim
 	vpi_put_value(argh, &argval, NULL, vpiNoDelay);
 
-/************* vpi.length to VPI ******************************/
+	/************* vpi.length to VPI ******************************/
 
 	// now get a handle on the next object (memory array)
 	argh = vpi_scan(args_iter);
@@ -98,12 +98,12 @@ void vpi_check_for_command(char *userdata)
 	// Now set the command value
 	vpi_get_value(argh, &argval);
 
-	argval.value.integer = (uint32_t)vpi.length;
+	argval.value.integer = (uint32_t)cmd.length;
 
 	// And vpi_put_value() it back into the sim
 	vpi_put_value(argh, &argval, NULL, vpiNoDelay);
 
-/************* vpi.nb_bits to VPI ******************************/
+	/************* vpi.nb_bits to VPI ******************************/
 
 	// now get a handle on the next object (memory array)
 	argh = vpi_scan(args_iter);
@@ -112,24 +112,24 @@ void vpi_check_for_command(char *userdata)
 	// Now set the command value
 	vpi_get_value(argh, &argval);
 
-	argval.value.integer = (uint32_t)vpi.nb_bits;
+	argval.value.integer = (uint32_t)cmd.nb_bits;
 
 	// And vpi_put_value() it back into the sim
 	vpi_put_value(argh, &argval, NULL, vpiNoDelay);
 
-/*****************vpi.buffer_out to VPI ********/
+	/*****************vpi.buffer_out to VPI ********/
 
 	// now get a handle on the next object (memory array)
 	argh = vpi_scan(args_iter);
 	vpiHandle array_word;
 
 	// Loop to load the words
-	while (loaded_words < vpi.length) {
+	while (loaded_words < cmd.length) {
 		// now get a handle on the current word we want in the array that was passed to us
 		array_word = vpi_handle_by_index(argh, loaded_words);
 
 		if (array_word != NULL) {
-			argval.value.integer = (uint32_t)vpi.buffer_out[loaded_words];
+			argval.value.integer = (uint32_t)cmd.buffer_out[loaded_words];
 			// And vpi_put_value() it back into the sim
 			vpi_put_value(array_word, &argval, NULL, vpiNoDelay);
 		} else
@@ -138,7 +138,7 @@ void vpi_check_for_command(char *userdata)
 		loaded_words++;
 	}
 
-/*******************************************/
+	/*******************************************/
 
 	// Cleanup and return
 	vpi_free_object(args_iter);
@@ -148,7 +148,7 @@ void vpi_send_result_to_server(char *userdata)
 {
 	vpiHandle systfref, args_iter, argh;
 	struct t_vpi_value argval;
-	struct jtag_cmd vpi;
+	struct jtag_cmd cmd;
 
 	int32_t length;
 	int sent_words;
@@ -179,15 +179,9 @@ void vpi_send_result_to_server(char *userdata)
 	argh = vpi_scan(args_iter);
 
 	// check we got passed a memory (array of regs)
-	if (!((vpi_get(vpiType, argh) == vpiMemory)
-#ifdef MODELSIM_VPI
-	|| (vpi_get(vpiType, argh) == vpiRegArray)
-#endif
-#ifdef VCS_VPI
-        || (vpi_get(vpiType, argh) == vpiRegArray)
-#endif
-	)) {
-		vpi_printf("jtag_vpi: ERROR: did not pass a memory to get_command_block_data\n");
+	
+	if (!((vpi_get(vpiType, argh) == vpiMemory) || (vpi_get(vpiType, argh) == vpiRegArray))) {
+		vpi_printf("jtag_vpi: ERROR: did not pass a memory/regArray to get_command_block_data\n");
 		vpi_printf("jtag_vpi: ERROR: was passed type %d\n", (int)vpi_get(vpiType, argh));
 		return;
 	}
@@ -207,23 +201,32 @@ void vpi_send_result_to_server(char *userdata)
 
 		if (array_word != NULL) {
 			vpi_get_value(array_word, &argval);
-			vpi.buffer_in[sent_words] = (uint32_t) argval.value.integer;
+			cmd.buffer_in[sent_words] = (uint32_t) argval.value.integer;
 		} else
 			return;
 
 		sent_words++;
 	}
 
-	// Handle endianness
-	vpi.cmd = to_little_endian_u32(vpi.cmd);
-	vpi.length = to_little_endian_u32(vpi.length);
-	vpi.nb_bits = to_little_endian_u32(vpi.nb_bits);
-
-	if (send_result_to_server(&vpi))
-		vpi_printf("jtag_vpi: ERROR: error during write to server\n");
+	if (send_result_to_server(&cmd) != JTAG_SERVER_SUCCESS) {
+		vpi_printf("Ending simulation. Reason: Cannot send data back to OpenOCD.\n");
+		terminate_simulation();
+		return;
+	}
 
 	// Cleanup and return
 	vpi_free_object(args_iter);
+}
+
+void print_func(char *msg)
+{
+	vpi_printf("%s", msg);
+}
+
+void setup_jtag_server_print(void)
+{
+	// Provide a callback to jtag_common.c so that messages can be printed.
+	jtag_server_set_print_func(print_func);
 }
 
 void register_check_for_command(void)
@@ -322,7 +325,7 @@ void setup_endofcompile_callbacks(void)
 
 void sim_finish_callback(void)
 {
-	jtag_finish();
+	jtag_server_finish();
 }
 
 void setup_finish_callbacks(void)
@@ -362,6 +365,7 @@ void (*vlog_startup_routines[])(void) = {
 	setup_finish_callbacks,
 	register_check_for_command,
 	register_send_result_to_server,
+	setup_jtag_server_print,
 	0  // last entry must be 0
 };
 

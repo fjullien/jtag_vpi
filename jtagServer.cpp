@@ -31,9 +31,25 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "jtagServer.h"
 
+#include "jtagServer.h"
 #include "jtag_common.h"
+
+#define DONE                    0
+#define IN_PROGRESS             1
+
+#define CMD_RESET               0
+#define CMD_TMS_SEQ             1
+#define CMD_SCAN_CHAIN          2
+#define CMD_SCAN_CHAIN_FLIP_TMS 3
+#define CMD_STOP_SIMU           4
+
+#define CHECK_CMD               0
+#define TAP_RESET               1
+#define GOTO_IDLE               2
+#define DO_TMS_SEQ              3
+#define SCAN_CHAIN              4
+#define FINISHED                5
 
 int VerilatorJtagServer::gen_clk(uint64_t t, int nb_period, uint8_t *tck, uint8_t tdo,
 				 uint8_t *captured_tdo, int restart, int get_tdo)
@@ -229,41 +245,75 @@ int VerilatorJtagServer::do_scan_chain(uint64_t t, int length, int nb_bits,
 	return DONE;
 }
 
-int VerilatorJtagServer::init_jtag_server(int port)
+namespace 
 {
-  return ::init_jtag_server(port);
+// Function to print messages from within jtag_common.c
+void print_func(char *msg)
+{
+	// In Verilator, plain printf() suffices
+	printf("%s", msg);
+	fflush(stdout);
+}
+}
+
+int VerilatorJtagServer::init_jtag_server(int port, bool loopback_only)
+{
+	::jtag_server_set_print_func(print_func);
+	if (::jtag_server_create(port, loopback_only) != JTAG_SERVER_SUCCESS) {
+		printf("Error: Could not create jtag_vpi server.\n");
+		return ERROR;
+	}
+	if (::jtag_server_wait_for_client() != JTAG_SERVER_SUCCESS) {
+		printf("Error: Could not accept incoming client connection.\n");
+		return ERROR;
+	}
+	return SUCCESS;
 }
 
 
-int VerilatorJtagServer::doJTAG(uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t *tck, uint8_t tdo)
+int VerilatorJtagServer::doJTAG(
+	uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t *tck, uint8_t tdo)
 {
-	if (!cmd_in_progress)
-		check_for_command(&packet);
-
+	int ret;
 	switch (jtag_state) {
 
 	case CHECK_CMD:
-		switch (packet.cmd) {
-		case CMD_RESET:
-			cmd_in_progress = 1;
-			jtag_state = TAP_RESET;
-			break;
-		case CMD_TMS_SEQ:
-			cmd_in_progress = 1;
-			jtag_state = DO_TMS_SEQ;
-			break;
-		case CMD_SCAN_CHAIN:
-			cmd_in_progress = 1;
-			tms_flip = 0;
-			jtag_state = SCAN_CHAIN;
-			break;
-		case CMD_SCAN_CHAIN_FLIP_TMS:
-			cmd_in_progress = 1;
-			tms_flip = 1;
-			jtag_state = SCAN_CHAIN;
-			break;
-		default:
-			break;
+		ret = check_for_command(&packet);
+		if (ret == JTAG_SERVER_SUCCESS) {
+			// New command from OpenOCD arrived
+			switch (packet.cmd) {
+			case CMD_RESET:
+				cmd_in_progress = 1;
+				jtag_state = TAP_RESET;
+				break;
+			case CMD_TMS_SEQ:
+				cmd_in_progress = 1;
+				jtag_state = DO_TMS_SEQ;
+				break;
+			case CMD_SCAN_CHAIN:
+				cmd_in_progress = 1;
+				tms_flip = 0;
+				jtag_state = SCAN_CHAIN;
+				break;
+			case CMD_SCAN_CHAIN_FLIP_TMS:
+				cmd_in_progress = 1;
+				tms_flip = 1;
+				jtag_state = SCAN_CHAIN;
+				break;
+			default:
+				break;
+			}
+		}
+		else if (ret == JTAG_SERVER_TRY_LATER) {
+			// No command from OpenOCD at the moment.
+			// Nothing to do.
+		}
+		else if (ret == JTAG_SERVER_CLIENT_DISCONNECTED) {
+			return CLIENT_DISCONNECTED;
+		}
+		else {
+			printf("Error when trying receive data from jtag_vpi client.\n");
+			return ERROR;
 		}
 		break;
 
@@ -292,8 +342,11 @@ int VerilatorJtagServer::doJTAG(uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t 
 		if (do_scan_chain(t, packet.length, packet.nb_bits, packet.buffer_out,
 				  packet.buffer_in, tms, tck, tdi, tdo, tms_flip) == DONE) {
 			cmd_in_progress = 0;
-			send_result_to_server(&packet);
 			jtag_state = CHECK_CMD;
+			if (send_result_to_server(&packet) != JTAG_SERVER_SUCCESS) {
+				printf("Error when sending data to jtag_vpi client. \n");
+				return ERROR;
+			}
 		}
 		break;
 
@@ -301,7 +354,7 @@ int VerilatorJtagServer::doJTAG(uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t 
 		break;
 	}
 
-	return 0;
+	return SUCCESS;
 }
 
 VerilatorJtagServer::VerilatorJtagServer(uint64_t period) {
