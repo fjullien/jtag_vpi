@@ -2,31 +2,20 @@
 #define __JTAG_SERVER_H__
 
 #include "jtag_common.h"
-#define XFERT_MAX_SIZE		512
-
-#define DONE			0
-#define IN_PROGRESS		1
-
-#define CMD_RESET		0
-#define CMD_TMS_SEQ		1
-#define CMD_SCAN_CHAIN		2
-#define CMD_SCAN_CHAIN_FLIP_TMS	3
-#define CMD_STOP_SIMU		4
-
-#define CHECK_CMD		0
-#define TAP_RESET		1
-#define GOTO_IDLE		2
-#define DO_TMS_SEQ		3
-#define SCAN_CHAIN		4
-#define FINISHED		5
 
 class VerilatorJtagServer {
 public:
+	enum {
+		SUCCESS,
+		ERROR,
+		CLIENT_DISCONNECTED
+	};
+
 	VerilatorJtagServer(uint64_t period);
 	~VerilatorJtagServer();
 
 	int doJTAG(uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t *tck, uint8_t tdo);
-	int init_jtag_server(int port);
+	int init_jtag_server(int port, bool loopback_only);
 
 private:
 	int gen_clk(uint64_t t, int nb_period, uint8_t *tck, uint8_t tdo, uint8_t *captured_tdo, int restart, int get_tdo);
