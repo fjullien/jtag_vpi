@@ -67,6 +67,7 @@ int jtag_server_create(int port, int loopback_only)
 	struct sockaddr_in serv_addr;
 	int ret;
 	int fd;
+	int opt_val;
 
 	PRINT_MSG("Starting jtag_vpi server: interface %s, port %d/tcp ...\n", 
 		loopback_only ? "127.0.0.1 (loopback)" : "0.0.0.0 (any)", port);
@@ -79,6 +80,16 @@ int jtag_server_create(int port, int loopback_only)
 		return JTAG_SERVER_ERROR;
 	}
 	listenfd = fd;
+
+	// Allow immediate reuse of the server port number (skip TIME_WAIT state)
+	opt_val = 1;
+	ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const char*) &opt_val, sizeof(opt_val)); 
+	if (ret == -1)
+	{
+		PRINT_MSG("Failed to disable TIME_WAIT on jtag_vpi socket: errno=%d, %s\n",
+			errno, strerror(errno));
+		return JTAG_SERVER_ERROR;
+	}
 
 	// Bind the socket to a local port
 	memset(&serv_addr, '0', sizeof(serv_addr));
