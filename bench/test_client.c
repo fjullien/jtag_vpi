@@ -96,10 +96,8 @@ static void jtag_vpi_stop_simu(void)
 
 /**
  * jtag_vpi_reset - ask to reset the JTAG device
- * @trst: 1 if TRST is to be asserted
- * @srst: 1 if SRST is to be asserted
  */
-static void jtag_vpi_reset(int trst, int srst)
+static void jtag_vpi_reset(void)
 {
 	struct vpi_cmd vpi;
 
@@ -397,6 +395,8 @@ int main(int argc, char *argv[])
 
 	if (jtag_vpi_init())
 		return -1;
+
+	jtag_vpi_reset();
 
 	/* Enable the debug unit */
 	bits = OR1K_TAP_INST_DEBUG;
