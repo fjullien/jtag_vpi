@@ -1,0 +1,40 @@
+VERILATOR ?= verilator
+VDIRFB := obj_dir
+
+VERILOG_ROOT := ../../bench/verilog
+VERILOG_FILES := $(VERILOG_ROOT)/jtag_soc.v $(VERILOG_ROOT)/jtag_tap/jtag_tap.v  $(VERILOG_ROOT)/adv_debugsys/*.v $(VERILOG_ROOT)/ram/ram_wb_b3.v
+VERILOG_INCLUDES := $(VERILOG_ROOT)/include 
+
+VFLAGS := --trace -cc -Wno-UNOPTFLAT -Wno-COMBDLY  -Wno-WIDTH  -Wno-BLKSEQ -Wno-UNUSED -Wno-CASEINCOMPLETE -Wno-PINMISSING   -Wno-PINCONNECTEMPTY -Wno-ASSIGNDLY
+
+SUBMAKE := $(MAKE) --no-print-directory -C
+
+CXX := g++
+
+VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT | head -1 | sed -e " s/^.*=\s*//"')
+VROOT   := $(VERILATOR_ROOT)
+VINCD   := $(VROOT)/include
+VSRCRAW := verilated.cpp verilated_vcd_c.cpp
+VSRC    := $(addprefix $(VINCD)/,$(VSRCRAW))
+
+verilator: library verilate
+
+library:
+	$(VERILATOR) $(VFLAGS) -I$(VERILOG_INCLUDES) $(VERILOG_FILES)
+	$(SUBMAKE) $(VDIRFB)/ -f Vjtag_soc.mk
+
+verilate:
+	$(CXX) -I$(VDIRFB) -I$(VINCD) -I$(VINCD)/vltstd ../../bench/verilator/tb.cpp ../../jtag_common.c ../../jtagServer.cpp $(VSRC) $(VDIRFB)/Vjtag_soc__ALL.a -o tb
+
+sim: verilator
+	$(Q)gcc -o test_client ../../bench/test_client.c
+	@echo '##### Start the simulation ######'
+	$(Q)./tb &
+	@sleep 1
+	@echo '##### Running the test client ######'
+	$(Q)./test_client
+	@sleep 1
+clean:
+	@rm -rf obj_dir
+	@rm -f ./tb
+	@rm -f ./sim.vcd
