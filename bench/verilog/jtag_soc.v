@@ -29,12 +29,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-module jtag_vpi_tb;
-
-wire		tdo_pad_o;
-wire		tck_pad_i;
-wire		tms_pad_i;
-wire		tdi_pad_i;
+module jtag_soc
+(
+	input	sys_clock,
+	input	sys_reset,
+	output	tdo_pad_o,
+	input	tck_pad_i,
+	input	tms_pad_i,
+	input	tdi_pad_i
+);
 
 wire		jtag_tap_tdo;
 wire		jtag_tap_shift_dr;
@@ -55,34 +58,6 @@ wire		wb_stb;
 wire		wb_ack;
 wire		wb_err;
 wire	[31:0]	wb_sdt;
-
-reg		sys_clock = 0;
-reg		sys_reset = 0;
-
-initial begin
-	$dumpfile("jtag_vpi.vcd");
-	$dumpvars(0);
-end
-
-always
-	#20 sys_clock <= ~sys_clock;
-
-initial begin
-	#100 sys_reset <= 1;
-	#200 sys_reset <= 0;
-end
-
-jtag_vpi #(.DEBUG_INFO(0))
-jtag_vpi0
-(
-	.tms(tms_pad_i),
-	.tck(tck_pad_i),
-	.tdi(tdi_pad_i),
-	.tdo(tdo_pad_o),
-
-	.enable(1'b1),
-	.init_done(1'b1)
-);
 
 jtag_tap jtag_tap0
 (
@@ -138,6 +113,7 @@ adv_dbg_if dbg_if0
 
 	// Wishbone debug master
 	.wb_clk_i			(sys_clock),
+	.wb_rst_i			(sys_reset),
 	.wb_dat_i			(wb_sdt),
 	.wb_ack_i			(wb_ack),
 	.wb_err_i			(wb_err),

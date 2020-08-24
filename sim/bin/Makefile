@@ -1,5 +1,5 @@
 SOURCE_DIR=../..
-BENCH_DIR=$(SOURCE_DIR)/bench
+BENCH_DIR=$(SOURCE_DIR)/bench/verilog
 INCLUDE_DIR=$(BENCH_DIR)/include
 
 # Set V=1 when calling make to enable verbose output
@@ -19,6 +19,7 @@ ADV_DEBUG_SRC = $(shell ls $(BENCH_DIR)/adv_debugsys/*.v)
 IVERILOG_SRC = $(SOURCE_DIR)/jtag_vpi.v \
                $(BENCH_DIR)/jtag_tap/jtag_tap.v \
                $(BENCH_DIR)/jtag_vpi_tb.v \
+               $(BENCH_DIR)/jtag_soc.v \
                $(BENCH_DIR)/ram/ram_wb_b3.v \
                $(ADV_DEBUG_SRC)
 
@@ -26,7 +27,7 @@ all: build
 
 build:
 	@echo '##### Building ######'
-	$(Q)gcc -otest_client $(BENCH_DIR)/test_client.c
+	$(Q)gcc -otest_client $(BENCH_DIR)/../test_client.c
 	$(Q)iverilog-vpi --name=jtag_vpi $(IVERILOG_VPI_SRC) > /dev/null
 	$(Q)iverilog -I$(INCLUDE_DIR) -ojtag_vpi_tb.vvp $(IVERILOG_SRC)
 
