@@ -16,6 +16,7 @@ public:
 
 	int doJTAG(uint64_t t, uint8_t *tms, uint8_t *tdi, uint8_t *tck, uint8_t tdo);
 	int init_jtag_server(int port, bool loopback_only);
+	bool stop_simu;
 
 private:
 	int gen_clk(uint64_t t, int nb_period, uint8_t *tck, uint8_t tdo, uint8_t *captured_tdo, int restart, int get_tdo);

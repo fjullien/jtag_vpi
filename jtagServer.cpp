@@ -300,6 +300,9 @@ int VerilatorJtagServer::doJTAG(
 				tms_flip = 1;
 				jtag_state = SCAN_CHAIN;
 				break;
+			case CMD_STOP_SIMU:
+				stop_simu = true;
+				break;
 			default:
 				break;
 			}
@@ -361,6 +364,7 @@ VerilatorJtagServer::VerilatorJtagServer(uint64_t period) {
 	tck_period = period;
 	jtag_state = CHECK_CMD;
 	cmd_in_progress = 0;
+	stop_simu = false;
 }
 
 VerilatorJtagServer::~VerilatorJtagServer() {
