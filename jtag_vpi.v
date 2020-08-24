@@ -40,8 +40,8 @@ module jtag_vpi
 #(	parameter DEBUG_INFO = 0,
 	parameter TP = 1,
 	parameter TCK_HALF_PERIOD = 50, // Clock half period (Clock period = 100 ns => 10 MHz)
-        parameter  CMD_DELAY = 1000
-)   
+	parameter  CMD_DELAY = 1000
+)
 (
 	output reg	tms,
 	output reg	tck,
@@ -54,8 +54,8 @@ integer		cmd;
 integer		length;
 integer		nb_bits;
 
-reg [31:0] 	buffer_out [0:4095];   // Data storage from the jtag server
-reg [31:0] 	buffer_in  [0:4095];   // Data storage to the jtag server
+reg [31:0]	buffer_out [0:4095];   // Data storage from the jtag server
+reg [31:0]	buffer_in  [0:4095];   // Data storage to the jtag server
 
 integer		flip_tms;
 
@@ -101,7 +101,7 @@ begin
 
 		while (cmd == -1)
 		begin
-                     #CMD_DELAY $check_for_command(cmd, length, nb_bits, buffer_out);
+			#CMD_DELAY $check_for_command(cmd, length, nb_bits, buffer_out);
 		end
 
 		// now switch on the command
@@ -201,7 +201,7 @@ end
 
 endtask
 
-// 
+//
 task do_tms_seq;
 
 integer		i,j;
@@ -228,7 +228,7 @@ begin
 			tms <= #1 1'b0;
 			if (data[j] == 1) begin
 				tms <= #1 1'b1;
-                        end
+			end
 			gen_clk(1);
 		end
 	end
@@ -239,7 +239,7 @@ end
 endtask
 
 
-// 
+//
 task do_scan_chain;
 
 integer		_bit;
