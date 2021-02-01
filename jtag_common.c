@@ -1,3 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2020 Jan Matyas
+ * SPDX-FileCopyrightText: 2019 Olof Kindgren
+ * SPDX-FileCopyrightText: 2012 Franck Jullien <franck.jullien@gmail.com>
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
