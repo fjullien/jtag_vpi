@@ -82,6 +82,8 @@ module ram_wb_b3
 	 2'b10 : burst_adr_counter[2:0] = adr[2:0] + 1; // 8-beat wrap burst
 	 2'b11 : burst_adr_counter[3:0] = adr[3:0] + 1; // 16-beat wrap burst
        endcase
+     else
+       burst_adr_counter = adr;
 
    wire using_burst_adr = wb_b3_trans;
    
